@@ -1,0 +1,325 @@
+
+import cv2
+print(cv2.ximgproc)
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.spatial import distance
+from collections import Counter
+
+
+
+
+# Function to calculate the centroid of each superpixel
+def calculate_superpixel_centroids(superpixel_mask):
+    centroids = []
+    superpixel_mask = superpixel_mask.astype(np.int32)
+    num_superpixels = np.max(superpixel_mask)
+
+
+    for superpixel_id in range(1, num_superpixels + 1):
+        # Get mask for the current superpixel
+        superpixel_area = np.where(superpixel_mask == superpixel_id)
+
+        if len(superpixel_area[0]) == 0:
+            continue
+
+        # Calculate the x and y coordinates of the centroid
+        centroid_x = np.mean(superpixel_area[1])
+        centroid_y = np.mean(superpixel_area[0])
+
+        centroids.append((centroid_x, centroid_y))
+
+    return centroids
+
+standard_colors = {
+
+
+
+"1": [123, 104, 238],   # Medium Slate Blue
+    "2": [0, 128, 128],     # Teal
+    "3": [135, 206, 250],   # Light Sky Blue
+    "4": [147, 112, 219],   # Medium Purple
+    "5": [60, 179, 113],    # Medium Sea Green
+    "6": [50, 205, 50],     # Lime Green
+    "7": [210, 180, 140],   # Tan
+    "8": [220, 20, 60],     # Crimson
+    "9": [244, 164, 96],    # Sandy Brown
+    "10": [255, 99, 71],    # Tomato
+    "11": [255, 69, 0],     # Orange Red
+    "12": [255, 20, 147],   # Deep Pink
+    "13": [255, 0, 255],    # Magenta
+    "14": [0, 191, 255],    # Deep Sky Blue
+    "15": [30, 144, 255],   # Dodger Blue
+    "16": [255, 140, 0],    # Dark Orange
+    "17": [32, 178, 170],   # Light Sea Green
+    "18": [255, 215, 0],    # Gold
+    "19": [218, 165, 32],   # Goldenrod
+    "20": [255, 182, 193],  # Light Pink
+    "21": [255, 0, 0],      # Red
+    "22": [173, 255, 47],   # Green Yellow
+    "23": [152, 251, 152],  # Pale Green
+    "24": [176, 224, 230],  # Powder Blue
+    "25": [72, 61, 139],    # Dark Slate Blue
+    "26": [255, 255, 0],    # Yellow
+    "27": [154, 205, 50],   # Yellow Green
+    "28": [255, 228, 181],  # Moccasin
+    "29": [144, 238, 144],  # Light Green
+    "30": [255, 248, 220],  # Cornsilk
+    "31": [46, 139, 87],    # Sea Green
+    "32": [100, 149, 237],  # Cornflower Blue
+    "33": [128, 0, 128],    # Purple
+    "34": [186, 85, 211],   # Medium Orchid
+    "35": [255, 127, 80],   # Coral
+    "36": [255, 228, 225],  # Misty Rose
+    "37": [173, 216, 230],  # Light Blue
+    "38": [245, 222, 179],  # Wheat
+    "39": [240, 230, 140],  # Khaki
+    "40": [255, 250, 240],  # Floral White
+    "41": [211, 211, 211],  # Light Gray
+    "42": [255, 192, 203],  # Pink
+    "43": [188, 143, 143],  # Rosy Brown
+    "44": [250, 250, 210],  # Light Goldenrod Yellow
+    "45": [240, 248, 255],  # Alice Blue
+    "46": [128, 0, 0],      # Maroon
+    "47": [255, 165, 0],    # Orange
+    "48": [240, 128, 128],  # Light Coral
+    "49": [70, 130, 180],   # Steel Blue
+    "50": [169, 169, 169],  # Dark Gray
+    "51": [255, 255, 255],  # White
+    "52": [139, 0, 0],      # Dark Red
+    "53": [219, 112, 147],  # Pale Violet Red
+    "54": [85, 107, 47],    # Dark Olive Green
+    "55": [255, 228, 196],  # Bisque
+    "56": [255, 239, 213],  # Papaya Whip
+    "57": [250, 128, 114],  # Salmon
+    "58": [240, 255, 255],  # Azure
+    "59": [255, 218, 185],  # Peach Puff
+    "60": [221, 160, 221],  # Plum
+    #"61": [176, 196, 222],  # Light Steel Blue
+    "62": [95, 158, 160],   # Cadet Blue
+    "63": [220, 220, 220],  # Gainsboro
+    "64": [0, 206, 209],    # Dark Turquoise
+    "65": [233, 150, 122],  # Dark Salmon
+    "66": [245, 245, 220],  # Beige
+    "67": [0, 255, 255],    # Cyan
+    "68": [0, 100, 0],      # Dark Green
+    "69": [127, 255, 212],  # Aquamarine
+    "70": [255, 235, 205],  # Blanched Almond
+    "71": [224, 255, 255],  # Light Cyan
+    "72": [192, 192, 192],  # Silver
+    "73": [224, 196, 175],  # Light Beige
+    "74": [255, 255, 240],  # Ivorys
+    "75": [202, 180, 151],  # Fair Complexion
+    "76": [34, 139, 34],    # Forest Green
+                    "77": [37, 10, 6],  # Light Sky Blue
+                    "78": [180, 101, 34],   # Coral
+    "79": [240, 255, 255],  # Linen
+                    "80": [0, 191, 255],    # Deep Sky Blue
+                    "81": [255, 20, 147],   # Deep Pink
+                    "82": [255, 215, 0],    # Gold
+    "83": [138, 43, 226],   # Blue Violet
+    "84": [0, 250, 154],    # Medium Spring Green
+    "85": [127, 255, 0],    # Chartreuse
+    "86": [255, 160, 122],  # Light Salmon
+                    "87": [30, 30, 30],   # Dark
+                    #"88": [60, 60, 60],     # Less dark
+    "89": [65, 105, 225],   # Royal Blue
+    "90": [75, 0, 130],     # Indigo
+    "91": [0, 255, 127],    # Spring Green
+    "92": [0, 0, 255],      # Blue
+    "93": [0, 255, 0],      # Green
+    "94": [199, 21, 133],   # Medium Violet Red
+    "95": [255, 105, 180],  # Hot Pink
+    "96": [105, 105, 105],  # Dim Gray
+                    "97": [30, 144, 255],   # Dodger Blue
+    "98": [255, 250, 205],  # Lemon Chiffon
+                    "99": [79,79,47]   # Papaya Whip
+}
+
+# Convert the color dictionary to a list of BGR color arrays
+standard_color_list = np.array(list(standard_colors.values()))
+
+# Function to find the closest color from the standard set
+def find_closest_color(average_color):
+    distances = distance.cdist([average_color], standard_color_list, 'euclidean')
+    closest_index = np.argmin(distances)
+    #return standard_color_list[closest_index]
+# For Regular average color
+    return average_color
+
+
+
+if __name__ == '__main__':
+
+    imagepath = "C:\\Users\\marti\\OneDrive\Desktop\\Personal\\Potential Photos\\Orig Kelly#16.jpg"
+    orig = cv2.imread(imagepath)
+    orig_width = orig.shape[0]
+    orig_length = orig.shape[1]
+
+    width = 800
+    length = int(width * (orig_width / orig_length))
+    orig = cv2.resize(orig, (width, length))
+    # Reshape image to a 2D array of pixels in RGB format
+    pixels = orig.reshape(-1, 3)
+
+    # Convert pixels to a list of tuples
+    pixels_list = [tuple(pixel) for pixel in pixels]
+
+    # Use Counter to count occurrences of each color
+    color_counter = Counter(pixels_list)
+
+    # Get the 20 most common colors
+    most_common_colors = color_counter.most_common(26)
+
+    # Print the most common colors
+    for rank, (color, count) in enumerate(most_common_colors, start=1):
+        print(f"{rank}: Color {color} appears {count} times")
+    vis = np.zeros(orig.shape[:2], dtype="float")
+    # load the image and apply SLIC superpixel segmentation to it via
+    # scikit-image
+
+    image = cv2.resize(orig, (width, length))
+    image = cv2.GaussianBlur(image, (11, 11), cv2.BORDER_DEFAULT)
+
+        # Convert the image to LAB color space (SLIC often works better in LAB)
+    lab_image = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+
+
+    # Create the SLIC superpixel segmentation object
+    slic = cv2.ximgproc.createSuperpixelSLIC(lab_image, algorithm=cv2.ximgproc.SLICO, region_size=50, ruler=10.0)
+
+    # Apply the SLIC algorithm to segment the image
+    slic.iterate(5)  # Number of iterations
+
+    # Get the labels for the superpixels
+    labels = slic.getLabels()
+
+    # Get the number of superpixels
+    num_superpixels = slic.getNumberOfSuperpixels()
+
+    # Create a mask to identify each superpixel
+    mask_slic = slic.getLabelContourMask()
+
+    # Display the original image
+    plt.figure(figsize=(10, 10))
+    plt.subplot(1, 2, 1)
+    plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))  # Convert BGR to RGB for displaying
+    plt.title('Original Image')
+    plt.axis('off')
+
+    # Create a copy of the original image for displaying superpixels
+    superpixel_image = image.copy()
+
+    # Draw boundaries of superpixels on the image
+    superpixel_image[mask_slic == 255] = (0, 0, 255)  # Superpixel boundaries in red
+
+    # Display the image with superpixel boundaries
+    plt.subplot(1, 2, 2)
+    plt.imshow(cv2.cvtColor(superpixel_image, cv2.COLOR_BGR2RGB))  # Convert BGR to RGB
+    plt.title('Image with Superpixels')
+    plt.axis('off')
+    plt.show()
+
+    mask_slic2 =mask_slic.astype(np.int32)
+    num_labels =num_superpixels
+    centroids = []
+
+    for i in range(num_labels):
+        # Find coordinates of all pixels that belong to the current superpixel
+        mask = labels == i
+        coords = np.argwhere(mask)
+
+        # Calculate the centroid as the mean of x and y coordinates
+        if len(coords) > 0:
+            centroid_yx = coords.mean(axis=0)  # [y, x] order
+            centroids.append((int(centroid_yx[1]), int(centroid_yx[0])))  # Append as (x, y) order
+
+    # Display the centroids on the image
+    output_image = superpixel_image.copy()
+
+    # Optionally, use a color from a predefined palette
+    palette = [
+        [224, 196, 175]  # Light Beige
+    ]
+
+    for idx, (x, y) in enumerate(centroids):
+    # Use modulo to cycle through the color palette
+        color = palette[idx % len(palette)]
+        # Draw the index number of the superpixel centroid in the corresponding color
+        cv2.putText(output_image, str(idx), (x-1, y-1), cv2.FONT_HERSHEY_SIMPLEX, 0.2, color, 1)
+    # Display the centroids as numbers on the original image
+
+    mask_slic2_normalized = cv2.normalize(mask_slic2, None, 0, 255, cv2.NORM_MINMAX)
+    mask_slic2_uint8 = np.uint8(mask_slic2_normalized)
+    inverted_mask = cv2.bitwise_not(mask_slic2_uint8)
+    cv2.imshow('Superpixel Centroids', inverted_mask)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    cv2.imwrite(rf'C:\\Users\\marti\\OneDrive\\Desktop\\Personal\\Finished Photos\\Kelly16A1Mask.jpg', inverted_mask)
+
+    # Separate the red, green, and blue channels from the original image (OpenCV loads images in BGR format)
+    blue_channel = image[:, :, 0]  # Blue channel
+    green_channel = image[:, :, 1]  # Green channel
+    red_channel = image[:, :, 2]  # Red channel
+
+    # Compute average RGB channel intensities for each superpixel
+    average_rgb_per_superpixel = []
+
+    for i in range(num_superpixels):
+        # Create a mask for the current superpixel
+        mask = (labels == i).astype(np.uint8)
+
+        # Get the pixel values for each channel in the superpixel
+        red_values = red_channel[mask == 1]
+        green_values = green_channel[mask == 1]
+        blue_values = blue_channel[mask == 1]
+
+        # Compute the average color for the superpixel (handling cases with no pixels in a superpixel)
+        avg_red = np.mean(red_values) if len(red_values) > 0 else 0
+        avg_green = np.mean(green_values) if len(green_values) > 0 else 0
+        avg_blue = np.mean(blue_values) if len(blue_values) > 0 else 0
+
+        # Store the averages in a list (tuple: (R, G, B))
+        average_rgb_per_superpixel.append((avg_blue, avg_green, avg_red))
+
+
+#for idx, avg_rgb in enumerate(average_rgb_per_superpixel):
+    #print(f'Superpixel {idx}: R={avg_rgb[0]:.2f}, G={avg_rgb[1]:.2f}, B={avg_rgb[2]:.2f}')
+#print(num_superpixels)
+
+# Create a new image where each superpixel has the average RGB color
+output_image = np.zeros_like(image)
+
+for i in range(num_superpixels):
+    # Create a mask for the current superpixel
+    mask = (labels == i).astype(np.uint8)
+
+    # Get the average color for the current superpixel
+    avg_color = average_rgb_per_superpixel[i]
+
+    # Find the closest standard color
+    closest_color = find_closest_color(avg_color)
+
+    # Assign the closest standard color to the pixels of the superpixel in the new image
+    output_image[mask == 1] = closest_color
+
+# Display the new image with averaged superpixel colors
+plt.figure(figsize=(10, 10))
+
+# Show the new image with averaged colors
+plt.imshow(cv2.cvtColor(output_image, cv2.COLOR_RGB2RGBA))  # Convert BGR to RGB for displaying
+plt.title('Superpixelated Image with Average Colors')
+plt.axis('off')
+
+plt.show()
+
+
+file_name = input("Enter the desired name for the output file (without extension): ")
+
+# Specify the full file path with the provided file name and save the image
+
+output_image_path = rf'C:\\Users\\marti\\OneDrive\\Desktop\\Personal\\Finished Photos\\{file_name}.jpg'
+cv2.imwrite(output_image_path, output_image)
+
+
+print(f"Superpixelated image saved at: {output_image_path}")
