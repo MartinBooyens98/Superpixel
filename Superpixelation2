@@ -1,0 +1,236 @@
+from ftplib import print_line
+from sys import flags
+from xml.etree.ElementInclude import include
+import matplotlib.pyplot as plt
+from skimage.segmentation import slic, mark_boundaries
+from skimage.util import img_as_float
+from skimage import io
+from skimage.transform import resize
+import numpy as np
+from numpy.f2py.cfuncs import includes
+from skimage.feature import canny
+import cv2
+
+import math
+import matplotlib.pyplot as plt
+import pandas as pd
+from skimage.segmentation import slic, mark_boundaries
+from skimage.draw import ellipse
+from skimage.measure import label, regionprops, regionprops_table
+from skimage.transform import rotate
+from skimage.data import astronaut
+from skimage.util import img_as_float
+from skimage import measure
+import maxflow
+import sys
+from scipy.spatial import Delaunay
+
+
+
+
+if __name__ == '__main__':
+
+    # validate the input arguments
+    if (len(sys.argv) >= 4):
+        help_message()
+        sys.exit()
+
+
+
+    img = cv2.imread("C:\\Users\\marti\\OneDrive\\Desktop\\Personal\\Potential Photos\\Orig Kelly#11.jpg")
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+    numSegments = 30
+    orig_width = img.shape[0]
+    orig_length = img.shape[1]
+
+    width = 500
+    length = int(width*(orig_width/orig_length))
+
+
+    #print('Shape of the image:', img.shape)
+    r = img[:, :, 0]  # red
+    print(r)
+    g = img[:, :, 1]  # green
+    b = img[:, :, 2]  # blue
+    #print('Shape of individual color matrix:', r.shape)
+#    f, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(20, 10))
+#
+#   # visualize red
+#    ax1.set_title('R channel')
+#    ax1.imshow(r, cmap='gray')
+#    # green
+#    ax2.set_title('G channel')
+#    ax2.imshow(g, cmap='gray')
+#    # blue
+#    ax3.set_title('B channel')
+#    ax3.imshow(b, cmap='gray')
+
+    blue_lower = np.array([0, 0, 0])
+    blue_upper = np.array([255, 255, 0])
+
+
+
+
+
+    cv2.imshow("Original", img)
+    img = cv2.resize(img, (width, length))
+    cv2.imshow("Resized", img)
+    blur = cv2.GaussianBlur(img,(11,11),cv2.BORDER_DEFAULT)
+    cv2.imshow("blur", blur)
+
+
+    # we create a new image by specifying all three BGR channels as zero
+    # this will create a completely black image
+
+    # It should be kept in mind that
+    # OpenCV loads images in the BGR format
+    # B - blue, G - green, R- red
+
+
+
+    canny = cv2.Canny(blur,20,30)
+    cv2.imshow("Canny", canny)
+    canny =cv2.dilate(canny,(5,5),iterations=1)
+    cv2.imshow("dialate", canny)
+
+    superpix = slic(blur,numSegments,12,10)
+
+    #superpix2 = cv2.ximgproc.createSuperpixelSLIC(blur, slic, 10)
+    #trying to figure out datatypes
+    #print(type(len(superpix.shape)))
+    #print(type(len(img.shape)))
+
+    img_rgb = img_as_float(blur)
+    img_rgb = resize(image=img_rgb, output_shape=(length, width, 3))
+    segments = slic(image=img_rgb, n_segments=numSegments)
+
+    superpixel_red_total = [0 for x in range(numSegments)]
+    superpixel_blue_total = [0 for x in range(numSegments)]
+    superpixel_green_total = [0 for x in range(numSegments)]
+    superpixel_pixCount = [1 for x in range(numSegments)]
+
+
+    superpixel_red_avg = [0 for x in range(numSegments)]
+    superpixel_blue_avg = [0 for x in range(numSegments)]
+    superpixel_green_avg = [0 for x in range(numSegments)]
+    (B, G, R) = cv2.split(img_rgb.astype("float"))
+    print(B)
+
+    #print(superpixel_green_total[30] )
+    for x in range(width):
+        for y in range(length):
+            superpixel_label = segments[y][x]
+            superpixel_pixCount[superpixel_label]=superpixel_pixCount[superpixel_label]+1
+            temp_red = img_rgb[y][x][0]
+            temp_green = img_rgb[y][x][1]
+            temp_blue = img_rgb[y][x][2]
+            superpixel_red_total[superpixel_label] = superpixel_red_total[superpixel_label] + temp_red
+            superpixel_green_total[superpixel_label] = superpixel_green_total[superpixel_label] + temp_green
+            superpixel_blue_total[superpixel_label] = superpixel_blue_total[superpixel_label] + temp_blue
+            print(temp_blue)
+            #print(superpixel_label)
+
+
+
+    for z in range(numSegments):
+        print("redTot: ")
+        print(superpixel_red_total[z])
+        print("greenTot: ")
+        print(superpixel_green_total[z])
+        print("blueTot: ")
+        print(superpixel_blue_total[z])
+        superpixel_red_avg [z] = superpixel_red_total[z]/superpixel_pixCount[z]
+        superpixel_green_avg[z] = superpixel_green_total[z] / superpixel_pixCount[z]
+        superpixel_blue_avg[z] = superpixel_blue_total[z] / superpixel_pixCount[z]
+        print("redAvg: ")
+        print(superpixel_red_avg[z])
+        print("greenAvg: ")
+        print(superpixel_green_avg[z])
+        print("blueAvg: ")
+        print(superpixel_blue_avg[z])
+
+    #superpixel_red_avg = superpixel_red_avg*255
+    for z2 in range(numSegments):
+        print("Total Colour")
+        print(superpixel_red_total[z2])
+        print("Total Nr of Pix")
+        print(superpixel_pixCount[z2])
+        print("Average")
+        superpixel_red_avg[z]= superpixel_red_avg[z2]
+        print(superpixel_red_avg[z2])
+
+
+    print(segments[500][1])
+    print(img_rgb.shape)
+    print(segments.shape)
+    img_rgb = mark_boundaries(image=img_rgb, label_img=segments)
+    #plt.imshow(img_rgb)
+    #plt.show()
+    np.savetxt("segments.txt", segments, fmt='%i')
+
+
+
+
+
+    mask = cv2.inRange(img, blue_lower, blue_upper)
+    #plt.imshow(mask, cmap='gray')
+    masked_img = np.copy(img)
+    masked_img[mask != 0] = [0, 0, 0]
+    #plt.imshow(masked_img)
+
+
+
+
+    regions = measure.regionprops(superpix, intensity_image=img)
+    flags = [i for i in dir(cv2) if i.startswith('COLOR_')]
+
+    props = regionprops_table(
+        superpix,
+        properties=('centroid', 'orientation', 'axis_major_length', 'axis_minor_length'),
+    )
+
+
+    #make border for image
+    top = int(0.01 * superpix.shape[0])  # shape[0] = rows
+    bottom = top
+    left = int(0.01 * superpix.shape[1])  # shape[1] = cols
+    right = left
+    borderType = cv2.BORDER_CONSTANT
+
+    value = [255, 255, 255]
+    superpix = cv2.copyMakeBorder(superpix,2,1,1,1,borderType,None,value)
+
+
+#make new blank image for mask to go on
+    newImage = np.zeros((length+3, width+2, 3), np.uint8)
+    newImage[:, :, 0] = 255
+    # green channel
+    newImage[:, :, 1] = 255
+    # red channel
+    newImage[:, :, 2] = 255
+
+    # display image
+    #cv2.imshow("New Image", newImage)
+
+
+    pd.DataFrame(props)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    fig = plt.figure("Superpixels -- %d superpix" % (numSegments))
+    ax = fig.add_subplot(1, 1, 1)
+    superpix2 = ax.imshow(mark_boundaries(newImage, superpix))
+
+    #cv2.imshow("Superpix", superpix2)
+    plt.axis("off")
+    #plt.show()
+    cv2.waitKey(0)
+    #help_message()
+
+
+
+
+
+
+
+    # Iterative function for the interactive mouse input session
+
