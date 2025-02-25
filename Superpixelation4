@@ -1,0 +1,305 @@
+from sys import flags
+from skimage.feature import canny
+import cv2
+import numpy as np
+import math
+import matplotlib.pyplot as plt
+import pandas as pd
+from skimage.segmentation import slic, mark_boundaries
+from skimage.draw import ellipse
+from skimage.measure import label, regionprops, regionprops_table
+from skimage.transform import rotate
+from skimage.data import astronaut
+from skimage.util import img_as_float
+from skimage import measure
+import maxflow
+import sys
+from scipy.spatial import Delaunay
+from skimage.exposure import rescale_intensity
+from skimage.segmentation import slic
+from ftplib import print_line
+from skimage.util import img_as_float
+from skimage import io
+import argparse
+
+
+
+standard_colors = {
+    "Black": [0, 0, 0],
+    "White": [255, 255, 255],
+    "Red": [0, 0, 255],
+    "Green": [0, 255, 0],
+    "Blue": [255, 0, 0],
+    "Yellow": [0, 255, 255],
+    "Cyan": [255, 255, 0],
+    "Magenta": [255, 0, 255],
+    "Gray": [128, 128, 128],
+    "Orange": [0, 165, 255],
+    "Pink": [203, 192, 255],
+    "Purple": [128, 0, 128],
+    "Teal": [128, 128, 0],
+    "Olive": [0, 128, 128],
+    "Hot Pink": [180, 105, 255],
+    "Chocolate": [30, 105, 210],
+    "Dark Blue": [139, 0, 0],
+    "Dark Cyan": [139, 139, 0],
+    "Dark Magenta": [139, 0, 139],
+    "Saddle Brown": [19, 69, 139],
+    "Red-Orange": [0, 69, 255],
+    "Deep Pink": [147, 20, 255],
+    "Bisque": [196, 228, 255],
+    "Spring Green": [127, 255, 0],
+    "Dark Golden Rod": [11, 134, 184],
+    "Indigo": [130, 0, 75],
+    "Dark Orange": [0, 140, 255],
+    "Ghost White": [255, 248, 248],
+    "Light Golden Rod Yellow": [210, 250, 250],
+    "Light Green": [144, 238, 144],
+    "Light Salmon": [122, 160, 255],
+    "Light Sea Green": [170, 178, 32],
+    "Light Sky Blue": [250, 206, 135],
+    "Khaki": [140, 230, 240],
+    "Medium Blue": [205, 0, 0],
+    "Gold": [0, 215, 255],
+    "Light Gray": [211, 211, 211],
+    "Fuchsia": [255, 0, 255],
+    "Medium Aquamarine": [170, 205, 102],
+    "Peru": [63, 133, 205],
+    "Sienna": [45, 82, 160],
+    "Aqua": [255, 255, 0],
+    "Green Yellow": [47, 255, 173],
+    "Medium Spring Green": [154, 250, 0],
+    "Lavender Blush": [245, 240, 255],
+    "Light Coral": [128, 128, 240],
+    "Light Steel Blue": [222, 196, 176],
+    "Royal Blue": [225, 105, 65],
+    "Slate Blue": [205, 90, 106],
+    "Medium Orchid": [211, 85, 186],
+    "Plum": [221, 160, 221],
+    "Thistle": [216, 191, 216],
+    "Wheat": [179, 222, 245],
+    "Moccasin": [181, 228, 255],
+    "Peach Puff": [185, 218, 255],
+    "Papaya Whip": [213, 239, 255],
+    "Antique White": [215, 235, 250],
+    "Lemon Chiffon": [205, 250, 255],
+    "Light Pink": [193, 182, 255],
+    "Light Blue": [230, 216, 173],
+    "Sky Blue": [235, 206, 135],
+    "Light Golden Rod": [139, 239, 255],
+    "Dark Olive Green": [47, 107, 85],
+    "Cornflower Blue": [237, 149, 100],
+    "Dodger Blue": [255, 144, 30],
+    "Steel Blue": [180, 130, 70],
+    "Royal Blue": [225, 105, 65],
+    "Medium Turquoise": [204, 209, 72],
+    "Turquoise": [208, 224, 64],
+    "Light Sea Green": [170, 178, 32],
+    "Medium Sea Green": [113, 179, 60],
+    "Sea Green": [87, 139, 46],
+    "Dark Sea Green": [143, 188, 143],
+    "Light Pink": [193, 182, 255],
+"Alice Blue": [240, 248, 255],
+    "Antique White": [215, 235, 250],
+    "Aqua Marine": [127, 255, 212],
+    "Azure": [240, 255, 255],
+    "Beige": [245, 245, 220],
+    "Blanched Almond": [255, 235, 205],
+    "Blue Violet": [138, 43, 226],
+    "Brown": [42, 42, 165],
+    "Burly Wood": [222, 184, 135],
+    "Cadet Blue": [95, 158, 160],
+    "Chartreuse": [0, 255, 127],
+    "Chocolate": [30, 105, 210],
+    "Coral": [80, 127, 255],
+    "Cornsilk": [255, 248, 220],
+    "Crimson": [0, 0, 220],
+    "Dark Blue": [139, 0, 0],
+    "Dark Cyan": [139, 139, 0],
+    "Dark Golden Rod": [11, 134, 184],
+    "Dark Green": [0, 100, 0],
+    "Dark Khaki": [189, 183, 107],
+    "Dark Olive Green": [47, 107, 85],
+    "Dark Orange": [0, 140, 255],
+    "Dark Orchid": [204, 50, 153],
+    "Dark Red": [0, 0, 139],
+    "Deep Pink": [147, 20, 255],
+    "Deep Sky Blue": [255, 191, 0],
+    "Dim Gray": [105, 105, 105],
+    "Dodger Blue": [255, 144, 30],
+    "Fire Brick": [34, 34, 139],
+    "Floral White": [255, 250, 240],
+    "Forest Green": [34, 139, 34],
+    "Fuchsia": [255, 0, 255],
+    "Gainsboro": [220, 220, 220],
+    "Ghost White": [255, 248, 248],
+    "Gold": [0, 215, 255],
+    "Golden Rod": [0, 165, 255],
+    "Green Yellow": [47, 255, 173],
+    "Honey Dew": [240, 255, 240],
+    "Hot Pink": [180, 105, 255],
+    "Indian Red": [92, 92, 205],
+    "Indigo": [130, 0, 75],
+    "Ivory": [255, 255, 240],
+    "Khaki": [140, 230, 240],
+    "Lavender": [230, 230, 250],
+    "Lavender Blush": [245, 240, 255],
+    "Lawn Green": [0, 252, 124],
+    "Lemon Chiffon": [205, 250, 255],
+    "Light Blue": [230, 216, 173],
+    "Light Coral": [128, 128, 240],
+    "Light Cyan": [255, 255, 224],
+    "Light Golden Rod Yellow": [210, 250, 250],
+    "Light Green": [144, 238, 144],
+    "Light Pink": [193, 182, 255],
+    "Light Salmon": [122, 160, 255],
+    "Light Sea Green": [170, 178, 32],
+    "Light Sky Blue": [250, 206, 135],
+    "Light Slate Gray": [119, 136, 153],
+    "Light Steel Blue": [222, 196, 176],
+    "Light Yellow": [255, 255, 224],
+    "Lime": [0, 255, 0],
+    "Lime Green": [50, 205, 50],
+    "Linen": [250, 240, 230],
+    "Magenta": [255, 0, 255],
+    "Maroon": [0, 0, 128],
+    "Medium Aquamarine": [102, 205, 170],
+    "Medium Blue": [205, 0, 0],
+    "Medium Orchid": [211, 85, 186],
+    "Medium Purple": [147, 112, 219],
+    "Medium Sea Green": [113, 179, 60],
+    "Medium Slate Blue": [207, 139, 255],
+    "Medium Spring Green": [154, 250, 0],
+    "Medium Turquoise": [204, 209, 72],
+    "Medium Violet Red": [199, 21, 133],
+    "Midnight Blue": [112, 25, 25],
+    "Mint Cream": [245, 255, 250],
+    "Misty Rose": [255, 228, 225],
+    "Moccasin": [255, 228, 181],
+    "Navajo White": [255, 222, 173],
+    "Navy": [128, 0, 0],
+    "Old Lace": [253, 245, 230],
+    "Olive": [0, 128, 128],
+    "Olive Drab": [107, 142, 35],
+    "Orange": [0, 165, 255],
+    "Orange Red": [0, 69, 255],
+    "Orchid": [218, 112, 214],
+    "Pale Golden Rod": [232, 232, 171],
+    "Pale Green": [154, 255, 154],
+    "Pale Turquoise": [238, 238, 175],
+    "Pale Violet Red": [219, 112, 147],
+    "Papaya Whip": [213, 239, 255],
+    "Peach Puff": [185, 218, 255],
+    "Peru": [63, 133, 205],
+    "Pink": [203, 192, 255],
+    "Plum": [221, 160, 221],
+    "Powder Blue": [176, 224, 230],
+    "Purple": [128, 0, 128],
+    "Rebecca Purple": [102, 51, 153],
+    "Rosy Brown": [139, 69, 19],
+    "Royal Blue": [225, 105, 65],
+    "Saddle Brown": [19, 69, 139],
+    "Salmon": [250, 128, 114],
+    "Sandy Brown": [160, 82, 45],
+    "Sea Green": [87, 139, 46],
+    "Sea Shell": [255, 245, 238],
+    "Sienna": [45, 82, 160],
+    "Silver": [192, 192, 192],
+    "Sky Blue": [135, 206, 235],
+    "Slate Blue": [106, 90, 205],
+    "Slate Gray": [112, 128, 144],
+    "Snow": [255, 250, 250],
+    "Spring Green": [127, 255, 0],
+    "Steel Blue": [180, 130, 70],
+    "Tan": [140, 130, 90],
+    "Teal": [128, 128, 0],
+    "Thistle": [216, 191, 216],
+    "Tomato": [64, 99, 255],
+    "Turquoise": [208, 224, 64],
+    "Violet": [238, 130, 238],
+    "Wheat": [179, 222, 245],
+    "White Smoke": [245, 245, 245],
+    "Yellow Green": [154, 205, 50],
+    "Yellow": [0, 255, 255]
+}
+def segment_colorfulness(image, mask):
+	# split the image into its respective RGB components, then mask
+	# each of the individual RGB channels so we can compute
+	# statistics only for the masked region
+	(B, G, R) = cv2.split(image.astype("float"))
+	R = np.ma.masked_array(R, mask=mask)
+	G = np.ma.masked_array(B, mask=mask)
+	B = np.ma.masked_array(B, mask=mask)
+
+	return R,G,B
+
+if __name__ == '__main__':
+    width = 700
+    length = int(width*(1280/960))
+    ap = argparse.ArgumentParser()
+    imagepath = "C:\\Users\\marti\\OneDrive\\Desktop\\Personal\\Potential Photos\\Orig Kelly#2.jpg"
+
+
+    # load the image in OpenCV format so we can draw on it later, then
+    # allocate memory for the superpixel colorfulness visualization
+    orig = cv2.imread(imagepath)
+
+    orig = cv2.resize(orig, (width, length))
+    vis = np.zeros(orig.shape[:2], dtype="float")
+    # load the image and apply SLIC superpixel segmentation to it via
+    # scikit-image
+    image = io.imread(imagepath)
+    image = cv2.resize(image, (width, length))
+    image = cv2.GaussianBlur(image, (11, 11), cv2.BORDER_DEFAULT)
+    segments = slic(img_as_float(image), n_segments=100,
+                    slic_zero=True)
+    # loop over each of the unique superpixels
+
+    rTot=0
+    gTot = 0
+    bTot = 0
+    for rows in range (length):
+        for cols in range (width):
+            r,g,b = image[cols,rows]
+
+    for v in np.unique(segments):
+
+        # construct a mask for the segment so we can compute image
+        # statistics for *only* the masked region
+        mask = np.ones(image.shape[:2])
+        mask[segments == v] = 0
+        # compute the superpixel colorfulness, then update the
+        # visualization array
+        #C = segment_colorfulness(orig, mask)
+        RED, GREEN, BLUE = segment_colorfulness(orig, mask)
+        rTot= rTot + RED
+        gTot = gTot + GREEN
+        bTot = bTot + BLUE
+        print("Redtot")
+        print(rTot)
+        print("Greentot")
+        print(gTot)
+        print("Bluetot")
+        print(bTot)
+        #vis[segments == v] = C
+    # scale the visualization image from an unrestricted floating point
+    # to unsigned 8-bit integer array so we can use it with OpenCV and
+    # display it to our screen
+    #vis = rescale_intensity(vis, out_range=(0, 255)).astype("uint8")
+    # overlay the superpixel colorfulness visualization on the original
+    # image
+    #alpha = 0.6
+    #overlay = np.dstack([vis] * 3)
+    output = orig.copy()
+    #cv2.addWeighted(overlay, alpha, output, 1 - alpha, 0, output)
+    # show the output images
+    cv2.imshow("Input", orig)
+    #cv2.imshow("Visualization", vis)
+    cv2.imshow("Output", output)
+    cv2.waitKey(0)
+
+
+
+
+    # Iterative function for the interactive mouse input session
+
