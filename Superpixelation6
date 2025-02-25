@@ -1,0 +1,279 @@
+
+import cv2
+print(cv2.ximgproc)
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.spatial import distance
+from collections import Counter
+from sklearn.cluster import KMeans
+from sklearn.metrics import pairwise_distances_argmin
+
+
+
+
+
+# Function to calculate the centroid of each superpixel
+def calculate_superpixel_centroids(superpixel_mask):
+    centroids = []
+    superpixel_mask = superpixel_mask.astype(np.int32)
+    num_superpixels = np.max(superpixel_mask)
+
+
+    for superpixel_id in range(1, num_superpixels + 1):
+        # Get mask for the current superpixel
+        superpixel_area = np.where(superpixel_mask == superpixel_id)
+
+        if len(superpixel_area[0]) == 0:
+            continue
+
+        # Calculate the x and y coordinates of the centroid
+        centroid_x = np.mean(superpixel_area[1])
+        centroid_y = np.mean(superpixel_area[0])
+
+        centroids.append((centroid_x, centroid_y))
+
+    return centroids
+
+standard_colors = {
+"1": [216, 206, 190],
+"2": [210, 200, 184],
+"3": [223, 212, 195],
+"4": [204, 193, 178],
+"5": [34, 21, 9],
+"6": [42, 26, 15],
+"7": [196, 185, 172],
+"8": [47, 31, 20],
+"9": [185, 178, 168],
+"10": [28, 14, 4],
+"11": [204, 185, 165],
+"12": [212, 192, 171],
+"13": [169, 163, 155],
+"14": [195, 179, 160],
+"15": [146, 136, 124],
+"16": [162, 151, 136],
+"17": [155, 143, 128],
+"18": [176, 170, 162],
+"19": [141, 129, 115],
+"20": [219, 199, 178],
+"21": [161, 155, 147],
+"22": [185, 171, 153],
+"23": [135, 122, 109],
+"24": [55, 38, 27],
+"25": [124, 115, 104],
+"26": [36, 41, 59],
+"27": [174, 161, 144],
+"28": [150, 146, 139],
+"29": [116, 106, 96],
+"30": [17, 6, 2],
+"31": [106, 97, 86],
+"32": [39, 48, 71],
+"33": [63, 47, 36],
+"34": [96, 86, 75],
+"35": [191, 191, 184],
+"36": [245, 204, 172],
+"37": [85, 74, 63],
+"38": [66, 61, 61],
+"39": [33, 32, 36],
+"40": [240, 188, 156],
+"41": [130, 126, 120],
+"42": [22, 19, 23],
+"43": [76, 77, 94],
+"44": [95, 96, 119],
+"45": [185, 144, 120],
+"46": [114, 117, 145],
+"47": [131, 134, 168],
+"48": [153, 156, 193],
+"49": [213, 166, 139],
+"50": [183, 183, 223]
+}
+# Convert the color dictionary to a list of BGR color arrays
+standard_color_list = np.array(list(standard_colors.values()))
+
+# Function to find the closest color from the standard set
+def find_closest_color(average_color):
+    distances = distance.cdist([average_color], standard_color_list, 'euclidean')
+    closest_index = np.argmin(distances)
+    return standard_color_list[closest_index]
+
+
+
+
+if __name__ == '__main__':
+
+    imagepath = "C:\\Users\\marti\\OneDrive\Desktop\\Personal\\Potential Photos\\Orig Kelly#3.jpg"
+    orig = cv2.imread(imagepath)
+    orig_width = orig.shape[0]
+    orig_length = orig.shape[1]
+
+    width = 800
+    length = int(width * (orig_width / orig_length))
+    orig = cv2.resize(orig, (width, length))
+    # Reshape image to a 2D array of pixels in RGB format
+
+    vis = np.zeros(orig.shape[:2], dtype="float")
+    # load the image and apply SLIC superpixel segmentation to it via
+    # scikit-image
+
+    image = cv2.resize(orig, (width, length))
+    image = cv2.GaussianBlur(image, (11, 11), cv2.BORDER_DEFAULT)
+    pixels = image.reshape(-1, 3)
+
+    # Apply K-means clustering to find the 20 most representative colors
+    num_colors = 50
+    kmeans = KMeans(n_clusters=num_colors)
+    kmeans.fit(pixels)
+
+    # Get the cluster centers (most representative colors)
+    dominant_colors = kmeans.cluster_centers_.astype(int)
+
+    # Get the number of pixels in each cluster
+    counts = np.bincount(kmeans.labels_)
+
+    # Sort the dominant colors by frequency
+    sorted_colors = sorted(zip(counts, dominant_colors), key=lambda x: x[0], reverse=True)
+
+    # Create the formatted list with pure integers
+    formatted_colors = {str(index + 1): [int(value) for value in color] for index, (count, color) in
+                        enumerate(sorted_colors)}
+
+    # Print the formatted list similar to previous examples
+    for name, color in formatted_colors.items():
+        print(f'"{name}": {color},')
+        # Convert the image to LAB color space (SLIC often works better in LAB)
+    lab_image = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+
+
+    # Create the SLIC superpixel segmentation object
+    slic = cv2.ximgproc.createSuperpixelSLIC(lab_image, algorithm=cv2.ximgproc.SLICO, region_size=30, ruler=10.0)
+
+    # Apply the SLIC algorithm to segment the image
+    slic.iterate(5)  # Number of iterations
+
+    # Get the labels for the superpixels
+    labels = slic.getLabels()
+
+    # Get the number of superpixels
+    num_superpixels = slic.getNumberOfSuperpixels()
+
+    # Create a mask to identify each superpixel
+    mask_slic = slic.getLabelContourMask()
+
+    # Display the original image
+    plt.figure(figsize=(10, 10))
+    plt.subplot(1, 2, 1)
+    plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))  # Convert BGR to RGB for displaying
+    plt.title('Original Image')
+    plt.axis('off')
+
+    # Create a copy of the original image for displaying superpixels
+    superpixel_image = image.copy()
+
+    # Draw boundaries of superpixels on the image
+    superpixel_image[mask_slic == 255] = (0, 0, 255)  # Superpixel boundaries in red
+
+    # Display the image with superpixel boundaries
+    plt.subplot(1, 2, 2)
+    plt.imshow(cv2.cvtColor(superpixel_image, cv2.COLOR_BGR2RGB))  # Convert BGR to RGB
+    plt.title('Image with Superpixels')
+    plt.axis('off')
+    plt.show()
+
+    mask_slic2 =mask_slic.astype(np.int32)
+    num_labels =num_superpixels
+    centroids = []
+
+    for i in range(num_labels):
+        # Find coordinates of all pixels that belong to the current superpixel
+        mask = labels == i
+        coords = np.argwhere(mask)
+
+        # Calculate the centroid as the mean of x and y coordinates
+        if len(coords) > 0:
+            centroid_yx = coords.mean(axis=0)  # [y, x] order
+            centroids.append((int(centroid_yx[1]), int(centroid_yx[0])))  # Append as (x, y) order
+
+    # Display the centroids on the image
+    output_image = superpixel_image.copy()
+
+    # Optionally, use a color from a predefined palette
+    palette = [
+        [224, 196, 175]]  # Light Beige
+
+
+    for idx, (x, y) in enumerate(centroids):
+        # Use modulo to cycle through the color palette
+        color = palette[idx % len(palette)]
+        # Draw the index number of the superpixel centroid in the corresponding color
+        cv2.putText(output_image, str(idx), (x-1, y-1), cv2.FONT_HERSHEY_SIMPLEX, 0.2, color, 1)
+    # Display the centroids as numbers on the original image
+
+    cv2.imshow('Superpixel Centroids', output_image)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+    # Separate the red, green, and blue channels from the original image (OpenCV loads images in BGR format)
+    blue_channel = image[:, :, 0]  # Blue channel
+    green_channel = image[:, :, 1]  # Green channel
+    red_channel = image[:, :, 2]  # Red channel
+
+    # Compute average RGB channel intensities for each superpixel
+    average_rgb_per_superpixel = []
+
+    for i in range(num_superpixels):
+        # Create a mask for the current superpixel
+        mask = (labels == i).astype(np.uint8)
+
+        # Get the pixel values for each channel in the superpixel
+        red_values = red_channel[mask == 1]
+        green_values = green_channel[mask == 1]
+        blue_values = blue_channel[mask == 1]
+
+        # Compute the average color for the superpixel (handling cases with no pixels in a superpixel)
+        avg_red = np.mean(red_values) if len(red_values) > 0 else 0
+        avg_green = np.mean(green_values) if len(green_values) > 0 else 0
+        avg_blue = np.mean(blue_values) if len(blue_values) > 0 else 0
+
+        # Store the averages in a list (tuple: (R, G, B))
+        average_rgb_per_superpixel.append((avg_red, avg_green, avg_blue))
+
+
+#for idx, avg_rgb in enumerate(average_rgb_per_superpixel):
+    #print(f'Superpixel {idx}: R={avg_rgb[0]:.2f}, G={avg_rgb[1]:.2f}, B={avg_rgb[2]:.2f}')
+#print(num_superpixels)
+
+# Create a new image where each superpixel has the average RGB color
+output_image = np.zeros_like(image)
+
+for i in range(num_superpixels):
+    # Create a mask for the current superpixel
+    mask = (labels == i).astype(np.uint8)
+
+    # Get the average color for the current superpixel
+    avg_color = average_rgb_per_superpixel[i]
+
+    # Find the closest standard color
+    closest_color = find_closest_color(avg_color)
+
+    # Assign the closest standard color to the pixels of the superpixel in the new image
+    output_image[mask == 1] = closest_color
+
+# Display the new image with averaged superpixel colors
+plt.figure(figsize=(10, 10))
+
+# Show the new image with averaged colors
+plt.imshow(cv2.cvtColor(output_image, cv2.COLOR_RGB2RGBA))  # Convert BGR to RGB for displaying
+plt.title('Superpixelated Image with Average Colors')
+plt.axis('off')
+
+plt.show()
+
+
+file_name = input("Enter the desired name for the output file (without extension): ")
+
+# Specify the full file path with the provided file name and save the image
+
+output_image_path = rf'C:\\Users\\marti\\OneDrive\\Desktop\\Personal\\Finished Photos\\{file_name}.jpg'
+cv2.imwrite(output_image_path, output_image)
+
+
+print(f"Superpixelated image saved at: {output_image_path}")
